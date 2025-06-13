@@ -1,0 +1,51 @@
+name: Deploy To EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Github Repository 소스코드 불러오기
+        uses: actions/checkout@v4
+
+      - name: JDK 17버전 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: application.properties 파일 생성
+        run: echo "${{ secrets.APPLICATION_PROPERTIES}}" >> ./src/main/resources/application.properties
+
+      - name: 실행권한 주기 for gradlew
+        run: chmod +x ./gradlew
+
+      - name: 빌드하기
+        run: ./gradlew clean build -x test
+
+      - name: 빌드된 파일 이름 변경
+        run: mv ./build/libs/*SNAPSHOT.jar ./jpademo.jar
+
+      - name: 압축
+        run: tar -czvf $GITHUB_SHA.tar.gz jpademo.jar appspec.yml scripts
+
+      - name: Github Actions가 AWS Resource에 접근할 수 있게 AWS credentials 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ap-northeast-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY}}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: S3에 프로젝트 업로드
+        run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.tar.gz s3://board-bucket1/$GITHUB_SHA.tar.gz
+
+      - name: Code Deploy로 EC2에 프로젝트 배포
+        run: aws deploy create-deployment
+          --application-name board
+          --deployment-config-name CodeDeployDefault.AllAtOnce
+          --deployment-group-name board-prod
+          --s3-location bucket=board-bucket1,bundleType=tgz,key=$GITHUB_SHA.tar.gz
