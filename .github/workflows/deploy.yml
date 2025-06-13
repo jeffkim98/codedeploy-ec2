@@ -43,7 +43,7 @@ jobs:
       - name: S3에 프로젝트 업로드
         run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.tar.gz s3://board-bucket11/$GITHUB_SHA.tar.gz
 
-      - name: Code Deploy로 EC2에 프로젝트 배포
+      - name: Code Deploy로 EC2에 프로젝트 배포 3
         run: aws deploy create-deployment
           --application-name board
           --deployment-config-name CodeDeployDefault.AllAtOnce
